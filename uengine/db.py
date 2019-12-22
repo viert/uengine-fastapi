@@ -102,8 +102,9 @@ def intercept_db_errors_ro(retry_sleep: int = 3, max_retries: int = 6):
 
 class ObjectsCursor:
 
-    def __init__(self, cursor, obj_constructor, shard_id=None):
+    def __init__(self, cursor, obj_constructor, query, shard_id=None):
         self.obj_constructor = obj_constructor
+        self.query = query
         self.cursor = cursor
         self.shard_id = shard_id
 
@@ -213,7 +214,7 @@ class DBShard:
 
     def get_objs(self, cls, collection, query, **kwargs):
         cursor = self.ro_conn[collection].find(query, **kwargs)
-        return ObjectsCursor(cursor, cls, shard_id=self._shard_id)
+        return ObjectsCursor(cursor, cls, query, shard_id=self._shard_id)
 
     def get_objs_projected(self, collection, query, projection, **kwargs):
         cursor = self.ro_conn[collection].find(
