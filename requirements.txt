@@ -1,0 +1,2 @@
+-r uengine/requirements.txt
+-r sanboxapp/requirements.txt
