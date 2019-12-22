@@ -1,7 +1,7 @@
 from itertools import chain
 from pymongo import ASCENDING, DESCENDING, HASHED
 from pymongo.errors import OperationFailure
-from bson.objectid import ObjectId
+from bson import ObjectId, Timestamp
 from pydantic import BaseModel
 from typing import Optional, Iterable
 from functools import wraps
@@ -77,7 +77,13 @@ def merge_dict(attr, new_cls, bases):
 class AbstractModel(BaseModel):
 
     class Config:
+        from datetime import datetime
         extra = "allow"
+        json_encoders = {
+            ObjectId: str,
+            Timestamp: lambda o: o.time,
+            datetime: lambda v: v.timestamp(),
+        }
 
     __collection__: str = None
     __rejected_fields__: set = set()

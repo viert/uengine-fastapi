@@ -2,8 +2,10 @@ import os
 import sys
 import inspect
 import logging
+import uvicorn
 
 from logging.handlers import WatchedFileHandler
+from fastapi import FastAPI
 
 from . import ctx
 from .db import DB
@@ -95,8 +97,9 @@ class Base:
 
     @staticmethod
     def __setup_server():
-        ctx.log.error("SERVER SETUP NOT IMPLEMENTED")
-        pass
+        ctx.log.info("setting up a fastapi server")
+        server = FastAPI()
+        return server
 
     def __read_config(self):
         config_filename = os.path.join(
@@ -113,7 +116,12 @@ class Base:
         ctx.log.error("ERROR HANDLING NOT IMPLEMENTED")
 
     def run(self, **kwargs):
-        ctx.log.error("APP RUN NOT IMPLEMENTED")
+        ctx.log.info("running uvicorn")
+        if "host" not in kwargs:
+            kwargs["host"] = "127.0.0.1"
+        if "port" not in kwargs:
+            kwargs["port"] = 8000
+        uvicorn.run(self.server, **kwargs)
 
     def __setup_sessions(self):
         ctx.log.error("SESSIONS NOT IMPLEMENTED")

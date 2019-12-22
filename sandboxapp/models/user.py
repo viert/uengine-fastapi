@@ -5,6 +5,7 @@ from pydantic import validator
 
 
 class User(StorableModel):
+
     username: str
     first_name: str = ""
     last_name: str = ""
