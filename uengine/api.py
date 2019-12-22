@@ -1,6 +1,8 @@
 from math import ceil
 from uengine import ctx
 from uengine.db import ObjectsCursor
+from uengine.models.abstract_model import AbstractModel
+from typing import Callable, Iterable
 
 DEFAULT_DOCUMENTS_PER_PAGE = 20
 
@@ -13,11 +15,21 @@ def pagination_params(_page: int = 1, _limit: int = 0, _nopaging: bool = False):
 
 def fields_param(_fields: str = None):
     if _fields:
-        return {"fields": _fields.split(",")}
-    return {"fields": None}
+        return _fields.split(",")
+    return None
 
 
-async def paginated(data: ObjectsCursor, page: int, limit: int, nopaging: bool = False, extra: dict = None):
+def default_transform(item: AbstractModel, fields: Iterable = None) -> dict:
+    return item.to_dict(fields=fields)
+
+
+async def paginated(data: ObjectsCursor,
+                    page: int,
+                    limit: int,
+                    nopaging: bool = False,
+                    extra: dict = None,
+                    fields: Iterable = None,
+                    transform: Callable[[AbstractModel, Iterable], dict] = default_transform):
     if nopaging:
         page = None
         limit = None
@@ -32,7 +44,7 @@ async def paginated(data: ObjectsCursor, page: int, limit: int, nopaging: bool =
         "page": page,
         "total_pages": total_pages,
         "count": count,
-        "data": await data.all(),
+        "data": [transform(item, fields) for item in await data.all()],
     }
 
     if extra is not None:

@@ -90,14 +90,7 @@ class AbstractModel(BaseModel):
     __restricted_fields__: set = set()
     __key_field__: str = None
     __indexes__: Iterable = []
-
-    _id: Optional[ObjectIdType] = None
-
-    __mergers__ = {
-        "__rejected_fields__": merge_set,
-        "__restricted_fields__": merge_set,
-        "__indexes__": merge_tuple,
-    }
+    _id: ObjectIdType = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -152,7 +145,7 @@ class AbstractModel(BaseModel):
 
     @classmethod
     def get_collection_name(cls):
-        if cls.__collection__ is None:
+        if cls.__collection__ is None or "__collection__" not in cls.__dict__.keys():
             cls.__collection__ = snake_case(cls.__name__)
         return cls.__collection__
 
@@ -163,16 +156,23 @@ class AbstractModel(BaseModel):
     def __repr__(self):
         return f"<{self.__class__.__name__} {super().__str__()}>"
 
-    def to_dict(self, fields=None, include_restricted=False):
+    def to_dict(self, fields=None, include_restricted=False, preserve_object_id=False):
         exclude = None if include_restricted else self.__restricted_fields__
         result = self.dict(exclude=exclude)
         result["_id"] = self._id
+
         if fields:
             filtered = {}
             for field in fields:
                 if field in result:
                     filtered[field] = result[field]
-            return filtered
+            result = filtered
+
+        if not preserve_object_id:
+            for k, v in result.items():
+                if isinstance(v, ObjectId):
+                    result[k] = str(v)
+
         return result
 
     @classmethod
