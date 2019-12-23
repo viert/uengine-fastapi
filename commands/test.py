@@ -5,8 +5,7 @@ from commands import Command, _all_tests
 from unittest import main
 from uengine import ctx
 from sandboxapp import force_init_app
-from sandboxapp import tests
-from sandboxapp.models import User, Token
+
 
 class Test(Command):
 

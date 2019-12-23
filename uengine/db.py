@@ -226,10 +226,10 @@ class DBShard:
         if obj.is_new:
             data = obj.to_dict(include_restricted=True)
             del data["_id"]
-            result = await self.conn[obj.get_collection_name()].insert_one(data)
+            result = await self.conn[obj.__collection__].insert_one(data)
             obj._id = result.inserted_id
         else:
-            await self.conn[obj.get_collection_name()].replace_one(
+            await self.conn[obj.__collection__].replace_one(
                 {"_id": obj._id}, obj.to_dict(include_restricted=True), upsert=True
             )
 
@@ -237,7 +237,7 @@ class DBShard:
     async def delete_obj(self, obj):
         if obj.is_new:
             return
-        self.conn[obj.get_collection_name()].delete_one({'_id': obj._id})
+        self.conn[obj.__collection__].delete_one({'_id': obj._id})
 
     @intercept_db_errors_rw()
     async def find_and_update_obj(self, obj, update, when=None):
@@ -246,7 +246,7 @@ class DBShard:
             assert "_id" not in when
             query.update(when)
 
-        new_data = await self.conn[obj.get_collection_name()].find_one_and_update(
+        new_data = await self.conn[obj.__collection__].find_one_and_update(
             query,
             update,
             return_document=pymongo.ReturnDocument.AFTER

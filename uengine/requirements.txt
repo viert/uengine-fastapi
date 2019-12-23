@@ -3,4 +3,5 @@ uvicorn
 requests
 motor
 mongomock
+aiocache
 lazy_object_proxy

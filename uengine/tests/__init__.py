@@ -1,1 +1,2 @@
 from .test_abstract_model import TestAbstractModel
+from .test_storable_model import TestStorableModel
