@@ -1,4 +1,3 @@
-from traceback import format_exc
 from . import ctx
 
 
@@ -8,10 +7,11 @@ class ApiError(Exception):
     error_key = "api_error"
 
     def __init__(self, message, status_code=None, payload=None):
-        Exception.__init__(self)
+        super().__init__(self)
         self.message = message
         if status_code:
             self.status_code = status_code
+
         self.payload = payload or {}
 
     def to_dict(self):
@@ -34,7 +34,7 @@ class AuthenticationError(ApiError):
     auth_url = None
 
     def __init__(self, message="you must be authenticated first", payload=None):
-        ApiError.__init__(self, message, payload=payload)
+        super().__init__(message, payload=payload)
         if self.auth_url is None:
             oauth_cfg = ctx.cfg.get("oauth")
             if oauth_cfg:
@@ -77,6 +77,28 @@ class InvalidShardId(ApiError):
     status_code = 500
 
 
+class FieldRequired(ApiError):
+    error_key = "field_required"
+    status_code = 400
+
+    def __init__(self, field_name):
+        super().__init__(f"Field \"{field_name}\" is required", payload={"field": field_name})
+
+
+class InvalidFieldType(ApiError):
+    error_key = "invalid_field_type"
+
+    def __init__(self, field_name, field_type, expected_type):
+        super().__init__(f"Field \"{field_name}\" must be of type "
+                         f"{expected_type.__name__}, "
+                         f"got {field_type} instead",
+                         payload={
+                             "field": field_name,
+                             "expected_type": expected_type.__name__,
+                             "actual_type": field_type
+                         })
+
+
 class ShardIsReadOnly(IntegrityError):
     pass
 
@@ -102,6 +124,3 @@ class InputDataError(ApiError):
     pass
 
 
-class InvalidFieldType(ApiError):
-    error_key = "bad_input_type"
-    pass

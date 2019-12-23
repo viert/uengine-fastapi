@@ -1,13 +1,15 @@
 from itertools import chain
 from pymongo import ASCENDING, DESCENDING, HASHED
 from pymongo.errors import OperationFailure
-from bson import ObjectId, Timestamp
-from pydantic import BaseModel
-from typing import Optional, Iterable
+from bson import ObjectId
+from copy import deepcopy
+from typing import Any, Iterable, Set, Type, List
 from functools import wraps
 
+from .model_hook import ModelHook
 from uengine import ctx
-from .data_types import ObjectIdType
+from uengine.utils import snake_case
+from uengine.errors import FieldRequired, InvalidFieldType
 
 
 def parse_index_key(index_key):
@@ -22,18 +24,6 @@ def parse_index_key(index_key):
         if index_key.startswith("+"):
             index_key = index_key[1:]
     return index_key, order
-
-
-def snake_case(name):
-    result = ""
-    for i, l in enumerate(name):
-        if 65 <= ord(l) <= 90:
-            if i != 0:
-                result += "_"
-            result += l.lower()
-        else:
-            result += l
-    return result
 
 
 class ObjectSaveRequired(Exception):
@@ -74,30 +64,153 @@ def merge_dict(attr, new_cls, bases):
     setattr(new_cls, attr, merged)
 
 
-class AbstractModel(BaseModel):
+class ModelMeta(type):
+    def __new__(mcs, name, bases, dct) -> Any:
+        new_cls = super().__new__(mcs, name, bases, dct)
+        mcs._set_fields(new_cls, dct)
+        mcs._set_collection(new_cls, name, bases, dct)
 
-    class Config:
-        from datetime import datetime
-        extra = "allow"
-        json_encoders = {
-            ObjectId: str,
-            Timestamp: lambda o: o.time,
-            datetime: lambda v: v.timestamp(),
-        }
+        # First merge mergers config
+        merge_dict("__mergers__", new_cls, bases)
 
-    __collection__: str = None
-    __rejected_fields__: set = set()
-    __restricted_fields__: set = set()
+        for attr, merge_func in new_cls.__mergers__.items():
+            merge_func(attr, new_cls, bases)
+
+        return new_cls
+
+    @staticmethod
+    def _set_collection(model_cls, name, bases, dct):
+        if '__collection__' in dct:
+            model_cls.__collection__ = dct["__collection__"]
+        else:
+            model_cls.__collection__ = snake_case(name)
+
+    @staticmethod
+    def _set_fields(model_cls, dct):
+        fields = []
+        required = getattr(model_cls, "__required_fields__")
+        if required:
+            required = set(required)
+        else:
+            required = set()
+        defaults = {}
+        types = {}
+
+        if "__annotations__" in dct:
+            auxslots = getattr(model_cls, "__auxiliary_slots__", [])
+            for attr, value in dct["__annotations__"].items():
+                if attr in auxslots:
+                    continue
+                fields.append(attr)
+                types[attr] = value
+                if attr in dct:
+                    defaults[attr] = dct[attr]
+                else:
+                    required.add(attr)
+
+        setattr(model_cls, "__fields__", fields)
+        setattr(model_cls, "__fields_types__", types)
+        setattr(model_cls, "__fields_defaults__", defaults)
+        setattr(model_cls, "__required_fields__", required)
+
+
+class AbstractModel(metaclass=ModelMeta):
+
+    _id: ObjectId = None
+
+    __fields__: Set = None
+    __fields_types__: dict = {}
+    __fields_defaults__: dict = {}
+    __required_fields__: Set = set()
+    __rejected_fields__: Set = set()
+    __restricted_fields__: Set = set()
+    __auto_trim_fields__: Set = set()
     __key_field__: str = None
-    __indexes__: Iterable = []
-    _id: ObjectIdType = None
+    __indexes__: (list, tuple) = []
+    __hooks__: Set[Type[ModelHook]] = set()
+
+    __auxiliary_slots__: tuple = (
+        "__fields__",
+        "__fields_types__",
+        "__fields_defaults__",
+        "__auxiliary_slots__",
+        "__rejected_fields__",
+        "__required_fields__",
+        "__restricted_fields__",
+        "__auto_trim_fields__",
+        "__key_field__",
+        "__indexes__",
+        "__mergers__",
+        "__hooks__",
+    )
+
+    __mergers__: dict = {
+        "__fields__": merge_set,
+        "__fields_types__": merge_dict,
+        "__fields_defaults__": merge_dict,
+        "__rejected_fields__": merge_set,
+        "__required_fields__": merge_set,
+        "__restricted_fields__": merge_set,
+        "__auto_trim_fields__": merge_set,
+        "__indexes__": merge_tuple,
+    }
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if "_id" in kwargs:
-            self._id = kwargs["_id"]
+        # setup in constructor to make linter happy
+        self._initial_state = None
+
+        for field, value in kwargs.items():
+            if field in self.__fields__:
+                setattr(self, field, value)
+
+        for field in self.__fields__:
+            if field not in kwargs:
+                value = self.__fields_defaults__.get(field)
+                if callable(value):
+                    value = value()
+                elif hasattr(value, "copy"):
+                    value = value.copy()
+                elif hasattr(value, "__getitem__"):
+                    value = value[:]
+                setattr(self, field, value)
+
+        self.__set_initial_state()
+
+        self._hook_insts = []
+        if self.__hooks__:
+            for hook_class in self.__hooks__:
+                hook_inst = hook_class.on_model_init(self)
+                if hook_inst:
+                    self._hook_insts.append(hook_inst)
+
+    @classmethod
+    def register_model_hook(cls, model_hook_class: Type[ModelHook], *args, **kwargs) -> None:
+        if not issubclass(model_hook_class, ModelHook):
+            raise TypeError("Invalid hook class")
+        if model_hook_class not in cls.__hooks__:
+            cls.__hooks__.add(model_hook_class)
+            model_hook_class.on_hook_register(cls, *args, **kwargs)
+            ctx.log.debug("Registered hook %s for model %s",
+                          model_hook_class.__name__, cls.__name__)
+
+    @classmethod
+    def unregister_model_hook(cls, model_hook_class: Type[ModelHook]):
+        if model_hook_class in cls.__hooks__:
+            cls.__hooks__.remove(model_hook_class)
+            model_hook_class.on_hook_unregister(cls)
+
+    @classmethod
+    def clear_hooks(cls):
+        for hook_class in cls.__hooks__.copy():
+            cls.unregister_model_hook(hook_class)
+
+    def __set_initial_state(self):
+        setattr(self, "_initial_state", deepcopy(self.to_dict(self.__fields__)))
 
     def _before_save(self):
+        pass
+
+    def _before_validation(self):
         pass
 
     def _before_delete(self):
@@ -112,67 +225,142 @@ class AbstractModel(BaseModel):
     async def _save_to_db(self):
         pass
 
-    def _delete_from_db(self):
+    async def _delete_from_db(self):
         pass
+
+    def invalidate(self):
+        pass
+
+    @property
+    def __missing_fields__(self):
+        mfields = []
+        for field in self.__required_fields__:
+            if not hasattr(self, field) or getattr(self, field) in ["", None]:
+                mfields.append(field)
+        return mfields
+
+    def _validate(self):
+        for field in self.__missing_fields__:
+            raise FieldRequired(field)
+
+        for field_name, expected_type in self.__fields_types__.items():
+            field = getattr(self, field_name)
+
+            if field is None:
+                # This is not a required field otherwise FieldRequired
+                # would have raised already. It means the field can be
+                # None and thus, have a NoneType instead of what's expected.
+                continue
+
+            if not isinstance(field, expected_type):
+                raise InvalidFieldType(field_name, field.__class__.__name__, expected_type)
 
     def _reload_from_obj(self, obj):
         for field in self.__fields__:
+            if field == "_id":
+                continue
             value = getattr(obj, field)
             setattr(self, field, value)
 
-    def destroy(self, skip_callback=False):
+    async def destroy(self, skip_callback: bool = False, invalidate_cache: bool = True):
         if self.is_new:
             return
         if not skip_callback:
             self._before_delete()
-        self._delete_from_db()
+        await self._delete_from_db()
         if not skip_callback:
             self._after_delete()
         self._id = None
+        for hook in self.__hooks__:
+            try:
+                hook.on_model_destroy(self)
+            except Exception as e:
+                ctx.log.error("error executing destroy hook %s on model %s(%s): %s",
+                              hook.__class__.__name__, self.__class__.__name__, self._id, e)
+        if invalidate_cache:
+            self.invalidate()
         return self
 
-    async def save(self, skip_callback=False):
+    async def save(self, skip_callback: bool = False, invalidate_cache: bool = True):
         is_new = self.is_new
+
+        if not skip_callback:
+            self._before_validation()
+        self._validate()
+
+        # autotrim
+        for field in self.__auto_trim_fields__:
+            print("autotrim", field)
+            value = getattr(self, field)
+            try:
+                value = value.strip()
+                setattr(self, field, value)
+            except AttributeError:
+                pass
 
         if not skip_callback:
             self._before_save()
         await self._save_to_db()
 
+        for hook in self.__hooks__:
+            try:
+                hook.on_model_save(self, is_new)
+            except Exception as e:
+                ctx.log.error("error executing save hook %s on model %s(%s): %s",
+                              hook.__class__.__name__, self.__class__.__name__, self._id, e)
+
+        self.__set_initial_state()
+        if invalidate_cache:
+            self.invalidate()
         if not skip_callback:
             self._after_save(is_new)
 
         return self
 
-    @classmethod
-    def get_collection_name(cls):
-        if cls.__collection__ is None or "__collection__" not in cls.__dict__.keys():
-            cls.__collection__ = snake_case(cls.__name__)
-        return cls.__collection__
+    def __repr__(self):
+        attributes = ["%s=%r" % (a, getattr(self, a))
+                      for a in list(self.__fields__)]
+        return '%s(\n    %s\n)' % (self.__class__.__name__, ',\n    '.join(attributes))
+
+    def __eq__(self, other):
+        if self.__class__ != other.__class__:
+            return False
+        for field in self.__fields__:
+            if hasattr(self, field):
+                if not hasattr(other, field):
+                    return False
+                if getattr(self, field) != getattr(other, field):
+                    return False
+            elif hasattr(other, field):
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def is_new(self):
         return not(hasattr(self, "_id") and isinstance(self._id, ObjectId))
 
-    def __repr__(self):
-        return f"<{self.__class__.__name__} {super().__str__()}>"
+    @property
+    def is_complete(self):
+        return len(self.missing_fields) == 0
 
-    def to_dict(self, fields=None, include_restricted=False, preserve_object_id=False):
-        exclude = None if include_restricted else self.__restricted_fields__
-        result = self.dict(exclude=exclude)
-        result["_id"] = self._id
+    def to_dict(self, fields: Iterable[str] = None, include_restricted: bool = False) -> dict:
+        if fields is None:
+            fields = list(self.__fields__)
 
-        if fields:
-            filtered = {}
-            for field in fields:
-                if field in result:
-                    filtered[field] = result[field]
-            result = filtered
-
-        if not preserve_object_id:
-            for k, v in result.items():
-                if isinstance(v, ObjectId):
-                    result[k] = str(v)
-
+        result = {}
+        for field in fields:
+            if field in self.__restricted_fields__ and not include_restricted:
+                continue
+            try:
+                value = getattr(self, field)
+            except AttributeError:
+                continue
+            if callable(value):
+                continue
+            result[field] = value
         return result
 
     @classmethod
@@ -206,18 +394,18 @@ class AbstractModel(BaseModel):
 
             for db in cls._get_possible_databases():
                 try:
-                    await db.conn[cls.get_collection_name()].create_index(keys, **options)
+                    await db.conn[cls.__collection__].create_index(keys, **options)
                 except OperationFailure as e:
                     if e.details.get("codeName") == "IndexOptionsConflict" or e.details.get("code") == 85:
                         if overwrite:
                             if loud:
                                 ctx.log.debug(
                                     "Dropping index %s as conflicting", keys)
-                            await db.conn[cls.get_collection_name()].drop_index(keys)
+                            await db.conn[cls.__collection__].drop_index(keys)
                             if loud:
                                 ctx.log.debug(
                                     "Creating index with options: %s, %s", keys, options)
-                            await db.conn[cls.get_collection_name()].create_index(
+                            await db.conn[cls.__collection__].create_index(
                                 keys, **options)
                         else:
                             ctx.log.error(

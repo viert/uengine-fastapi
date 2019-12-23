@@ -115,3 +115,15 @@ def add_url_params(url, params):
         parsed_url.params, encoded_get_args, parsed_url.fragment
     ).geturl()
     return new_url
+
+
+def snake_case(name):
+    result = ""
+    for i, l in enumerate(name):
+        if 65 <= ord(l) <= 90:
+            if i != 0:
+                result += "_"
+            result += l.lower()
+        else:
+            result += l
+    return result
