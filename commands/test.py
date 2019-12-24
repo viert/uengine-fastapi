@@ -1,5 +1,4 @@
 import logging
-import mongomock
 
 from commands import Command, _all_tests
 from unittest import main
@@ -11,7 +10,6 @@ class Test(Command):
 
     NO_ARGPARSE = True
 
-    @mongomock.patch()
     def run(self):
         force_init_app()
         ctx.log.setLevel(logging.ERROR)

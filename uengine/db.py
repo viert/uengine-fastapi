@@ -1,7 +1,7 @@
+import pymongo
 import asyncio
 import functools
 import inspect
-import pymongo
 
 from bson.objectid import ObjectId, InvalidId
 from motor.motor_asyncio import AsyncIOMotorClient

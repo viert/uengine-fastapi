@@ -28,7 +28,7 @@ class Index(Command):
                 obj = getattr(module, attr)
                 if hasattr(obj, "ensure_indexes"):
                     ctx.log.info(
-                        "Creating indexes for %s, collection %s", attr, obj.get_collection_name())
+                        "Creating indexes for %s, collection %s", attr, obj.__collection__)
                     await obj.ensure_indexes(True, self.args.overwrite)
         ctx.log.info("Creating sessions indexes")
         ctx.db.meta.conn["sessions"].create_index(

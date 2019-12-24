@@ -1,7 +1,6 @@
 import asyncio
 from uengine.models.storable_model import StorableModel
-from .mongo_mock import MongoMockTest
-from typing import Any
+from .mongo_mock import TempDatabaseTest
 
 CALLABLE_DEFAULT_VALUE = 4
 
@@ -31,10 +30,11 @@ class TestModel(StorableModel):
     )
 
 
-class TestStorableModel(MongoMockTest):
+class TestStorableModel(TempDatabaseTest):
 
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.loop = asyncio.get_event_loop()
 
     def setUp(self):

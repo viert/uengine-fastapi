@@ -72,13 +72,8 @@ class NotFound(ApiError):
     status_code = 404
 
 
-class InvalidShardId(ApiError):
-    error_key = "intrnl_error"
-    status_code = 500
-
-
 class FieldRequired(ApiError):
-    error_key = "field_required"
+    error_key = "field.required"
     status_code = 400
 
     def __init__(self, field_name):
@@ -86,7 +81,7 @@ class FieldRequired(ApiError):
 
 
 class InvalidFieldType(ApiError):
-    error_key = "invalid_field_type"
+    error_key = "field.invalid_type"
 
     def __init__(self, field_name, field_type, expected_type):
         super().__init__(f"Field \"{field_name}\" must be of type "
@@ -100,22 +95,37 @@ class InvalidFieldType(ApiError):
 
 
 class ShardIsReadOnly(IntegrityError):
+    error_key = "shard.readonly"
     pass
 
 
+class InvalidShardId(ApiError):
+    error_key = "shard.invalid_id"
+    status_code = 500
+
+
+class MissingShardId(ApiError):
+    error_key = "shard.missing"
+    status_code = 500
+
+
 class ModelDestroyed(IntegrityError):
+    error_key = "model.destroyed"
     pass
 
 
 class MissingSubmodel(IntegrityError):
+    error_key = "submodel.missing"
     pass
 
 
 class WrongSubmodel(IntegrityError):
+    error_key = "submodel.wrong"
     pass
 
 
 class UnknownSubmodel(IntegrityError):
+    error_key = "submodel.unknown"
     pass
 
 
