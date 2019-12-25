@@ -1,7 +1,6 @@
 from uengine.models.storable_model import StorableModel
 from uengine.utils import now
 from datetime import datetime
-from pydantic import validator
 
 
 class User(StorableModel):

@@ -1,9 +1,11 @@
+from collections import namedtuple
+from typing import Callable, Iterable
 from math import ceil
+
 from uengine import ctx
 from uengine.db import ObjectsCursor
 from uengine.models.abstract_model import AbstractModel
-from typing import Callable, Iterable
-from collections import namedtuple
+
 
 DEFAULT_DOCUMENTS_PER_PAGE = 20
 

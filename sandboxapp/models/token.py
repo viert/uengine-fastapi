@@ -1,9 +1,8 @@
-import asyncio
-from pydantic import validator
+from bson.objectid import ObjectId
 from enum import IntEnum
 from datetime import datetime
 
-from uengine.models import StorableModel, ObjectIdType
+from uengine.models import StorableModel
 from uengine.utils import uuid4_string, now
 from uengine import ctx
 
@@ -18,11 +17,11 @@ class TokenType(IntEnum):
 
 
 class Token(StorableModel):
-    token: str = None
-    user_id: ObjectIdType = ...
+    token: str = uuid4_string
+    user_id: ObjectId = ...
     type: TokenType = TokenType.auth
-    created_at: datetime = None
-    updated_at: datetime = None
+    created_at: datetime = now
+    updated_at: datetime = now
 
     __key_field__ = "token"
     __rejected_fields__ = {"token", "user_id", "type"}
@@ -34,26 +33,11 @@ class Token(StorableModel):
     def touch(self):
         self.updated_at = now()
 
-    @validator('created_at', pre=True, always=True)
-    def set_created_at_default(cls, value):
-        return value or now()
-
-    @validator('updated_at', pre=True, always=True)
-    def set_updated_at_default(cls, value):
-        return value or now()
-
-    @validator('token', pre=True, always=True)
-    def create_token_string(cls, value):
-        if not value:
-            value = uuid4_string()
-        return value
-
-    def user(self):
+    async def user(self):
         from .user import User
         if self.user_id is None:
             return None
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(User.find_one({"_id": self.user_id}))
+        return await User.find_one({"_id": self.user_id})
 
     @property
     def expired(self):
