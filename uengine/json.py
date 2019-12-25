@@ -1,21 +1,14 @@
-import ujson
-import json
-
-loads = ujson.loads
+from bson import ObjectId, Timestamp
+from types import GeneratorType
 
 
-def uengine_json_encode(o):
-    from bson import ObjectId, Timestamp
-    from .models.abstract_model import AbstractModel
-
-    if isinstance(o, ObjectId):
-        return str(o)
-    if isinstance(o, Timestamp):
-        return o.time
-    if isinstance(o, AbstractModel):
-        return o.to_dict()
-    return o
-
-
-def dumps(obj):
-    return json.dumps(obj, default=uengine_json_encode)
+def jsonable(obj):
+    if isinstance(obj, dict):
+        return {k: jsonable(v) for k, v in obj.values()}
+    if isinstance(obj, (list, tuple, set, frozenset, GeneratorType)):
+        return [jsonable(item) for item in obj]
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    if isinstance(obj, Timestamp):
+        return obj.time
+    return obj

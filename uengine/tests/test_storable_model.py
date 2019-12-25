@@ -1,6 +1,6 @@
 import asyncio
 from uengine.models.storable_model import StorableModel
-from .mongo_mock import TempDatabaseTest
+from .temp_db_test import TemporaryDatabaseTest
 
 CALLABLE_DEFAULT_VALUE = 4
 
@@ -30,7 +30,7 @@ class TestModel(StorableModel):
     )
 
 
-class TestStorableModel(TempDatabaseTest):
+class TestStorableModel(TemporaryDatabaseTest):
 
     @classmethod
     def setUpClass(cls):

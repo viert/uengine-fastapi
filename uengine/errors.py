@@ -1,5 +1,7 @@
 from . import ctx
-
+from traceback import format_exc
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 class ApiError(Exception):
 
@@ -134,3 +136,37 @@ class InputDataError(ApiError):
     pass
 
 
+async def handle_api_error(request: Request, exc: ApiError):
+    content = exc.to_dict()
+    content["request"] = {
+        "m": request.method,
+        "p": request.url.path,
+        "q": request.url.query,
+    }
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.to_dict(),
+    )
+
+
+async def handle_other_errors(request: Request, exc: Exception):
+    code = 400
+    if hasattr(exc, "code"):
+        code = exc.code
+    if not (100 <= code <= 600):
+        code = 400
+    ctx.log.error(format_exc())
+
+    content = {
+        "error": str(exc),
+        "request": {
+            "m": request.method,
+            "p": request.url.path,
+            "q": request.url.query,
+        }
+    }
+
+    return JSONResponse(
+        status_code=code,
+        content=content,
+    )

@@ -8,7 +8,7 @@ from uengine.db import DB
 TEMP_DB_PREFIX_LENGTH = 5
 
 
-class TempDatabaseTest(TestCase):
+class TemporaryDatabaseTest(TestCase):
 
     @classmethod
     def setUpClass(cls):

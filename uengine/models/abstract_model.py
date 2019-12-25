@@ -10,6 +10,7 @@ from .model_hook import ModelHook
 from uengine import ctx
 from uengine.utils import snake_case
 from uengine.errors import FieldRequired, InvalidFieldType
+from uengine.json import jsonable
 
 
 def parse_index_key(index_key):
@@ -346,7 +347,7 @@ class AbstractModel(metaclass=ModelMeta):
     def is_complete(self):
         return len(self.missing_fields) == 0
 
-    def to_dict(self, fields: Iterable[str] = None, include_restricted: bool = False) -> dict:
+    def to_dict(self, fields: Iterable[str] = None, include_restricted: bool = False, jsonable_dict: bool = True) -> dict:
         if fields is None:
             fields = list(self.__fields__)
 
@@ -360,6 +361,9 @@ class AbstractModel(metaclass=ModelMeta):
                 continue
             if callable(value):
                 continue
+
+            if jsonable_dict:
+                value = jsonable(value)
             result[field] = value
         return result
 

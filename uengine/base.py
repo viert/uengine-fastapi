@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from . import ctx
 from .db import DB
+from .errors import ApiError, handle_api_error, handle_other_errors
 
 ENVIRONMENT_TYPES = ("development", "testing", "production")
 DEFAULT_ENVIRONMENT_TYPE = "development"
@@ -65,6 +66,7 @@ class Base:
     @staticmethod
     def __setup_cache():
         ctx.log.error("CACHE NOT IMPLEMENTED")
+        return 0
 
     @staticmethod
     def __setup_logging():
@@ -92,7 +94,7 @@ class Base:
             handler.setLevel(log_level)
             handler.setFormatter(log_format)
 
-        logger.info("Logger created, starting up")
+        logger.info("logger is created, starting up")
         return logger
 
     @staticmethod
@@ -113,7 +115,9 @@ class Base:
             return config
 
     def __setup_error_handling(self):
-        ctx.log.error("ERROR HANDLING NOT IMPLEMENTED")
+        ctx.log.error("setting up error handling")
+        self.server.add_exception_handler(ApiError, handle_api_error)
+        self.server.add_exception_handler(Exception, handle_other_errors)
 
     def run(self, **kwargs):
         ctx.log.info("running uvicorn")
@@ -121,7 +125,7 @@ class Base:
             kwargs["host"] = "127.0.0.1"
         if "port" not in kwargs:
             kwargs["port"] = 8000
-        uvicorn.run(self.server, **kwargs)
+        uvicorn.run(f"{self.__module__}:app.server", reload=True, **kwargs)
 
     def __setup_sessions(self):
         ctx.log.error("SESSIONS NOT IMPLEMENTED")

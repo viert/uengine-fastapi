@@ -1,7 +1,7 @@
 import asyncio
 from uengine import ctx
 from uengine.models.sharded_model import ShardedModel, MissingShardId
-from .mongo_mock import TempDatabaseTest
+from .temp_db_test import TemporaryDatabaseTest
 
 CALLABLE_DEFAULT_VALUE = 4
 
@@ -31,7 +31,7 @@ class TestModel(ShardedModel):
     )
 
 
-class TestShardedModel(TempDatabaseTest):
+class TestShardedModel(TemporaryDatabaseTest):
 
     @classmethod
     def setUpClass(cls):
