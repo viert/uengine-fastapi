@@ -6,7 +6,7 @@ from uengine.models.storable_model import StorableModel
 from uengine.utils import now
 from uengine import ctx
 
-from sandboxapp.errors import InvalidPassword
+from sandboxapp.errors import InvalidPassword, OutOfBounds, UserHasReferences
 
 DEFAULT_GRAVATAR_BASE_URL = "https://sys.mail.ru/avatar/internal"
 
@@ -117,6 +117,52 @@ class User(StorableModel):
         gravatar_hash = md5(self.email.strip().encode()).hexdigest()
         return f"{gravatar_base}/{gravatar_hash}.{gravatar_ext}"
 
+    def touch(self):
+        self.updated_at = now()
+
     @property
-    async def hello(self):
-        return "world"
+    def work_groups_owned(self):
+        from .work_group import WorkGroup
+        return WorkGroup.find({"owner_id": self._id})
+
+    @property
+    def work_groups_included_into(self):
+        from .work_group import WorkGroup
+        return WorkGroup.find({"member_ids": self._id})
+
+    async def _before_save(self):
+        if self.docs_per_page < 1:
+            raise OutOfBounds("docs_per_page can not be less than 1")
+        if not self.is_new:
+            self.touch()
+            self.invalidate()
+
+    async def _before_delete(self):
+        self.invalidate()
+        work_groups_count = await self.work_groups_owned.count()
+        if await work_groups_count > 0:
+            raise UserHasReferences("Can't remove user with work_groups owned by")
+        async for work_group in self.work_groups_included_into:
+            await work_group.remove_member(self)
+
+    @property
+    def public_namespace_key(self):
+        return "@" + self.username.replace(".", "_")
+
+    @property
+    def protected_namespace_key(self):
+        return self.public_namespace_key + ":protected"
+
+    def modification_allowed(self, user):
+        return user._id == self._id or user.supervisor
+
+    def supervisor_set_allowed(self, user):
+        # disallow user to revoke his own supervisor status
+        return user.supervisor and user._id != self._id
+
+    def system_set_allowed(self, user):
+        # disallow user to set himself system
+        return user.supervisor and user._id != self._id
+
+    def tokens_drop_allowed(self, user):
+        return user._id == self._id or user.supervisor

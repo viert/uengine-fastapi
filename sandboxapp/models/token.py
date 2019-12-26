@@ -51,7 +51,7 @@ class Token(StorableModel):
 
         return token_lifetime.total_seconds() > expiration_time
 
-    def _before_save(self):
+    async def _before_save(self):
         if not self.user:
             raise InvalidUserId(self.user_id)
         if not self.is_new:

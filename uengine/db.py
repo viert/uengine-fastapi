@@ -127,6 +127,9 @@ class ObjectsCursor:
         self.cursor.sort(*args, **kwargs)
         return self
 
+    async def count(self):
+        return await self.cursor.collection.count_documents(self.query)
+
     def __aiter__(self):
         return self
 

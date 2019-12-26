@@ -3,6 +3,7 @@ from traceback import format_exc
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+
 class ApiError(Exception):
 
     status_code = 400
@@ -53,6 +54,14 @@ class AuthenticationError(ApiError):
         if "state" not in data:
             data["state"] = "logged out"
         return data
+
+
+class Authenticated(ApiError):
+    error_key = "authenticated"
+    status_code = 400
+
+    def __init__(self, *args, **kwargs):
+        super().__init__("already authenticated", *args, **kwargs)
 
 
 class ConfigurationError(SystemExit):

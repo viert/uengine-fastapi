@@ -211,19 +211,19 @@ class AbstractModel(metaclass=ModelMeta):
                 "_initial_state",
                 deepcopy(self._dict_sync(self.__fields__, include_restricted=True, jsonable_dict=False)))
 
-    def _before_save(self):
+    async def _before_save(self):
         pass
 
-    def _before_validation(self):
+    async def _before_validation(self):
         pass
 
-    def _before_delete(self):
+    async def _before_delete(self):
         pass
 
-    def _after_save(self, is_new):
+    async def _after_save(self, is_new):
         pass
 
-    def _after_delete(self):
+    async def _after_delete(self):
         pass
 
     async def _save_to_db(self):
@@ -270,10 +270,10 @@ class AbstractModel(metaclass=ModelMeta):
         if self.is_new:
             return
         if not skip_callback:
-            self._before_delete()
+            await self._before_delete()
         await self._delete_from_db()
         if not skip_callback:
-            self._after_delete()
+            await self._after_delete()
         self._id = None
         for hook in self.__hooks__:
             try:
@@ -289,12 +289,11 @@ class AbstractModel(metaclass=ModelMeta):
         is_new = self.is_new
 
         if not skip_callback:
-            self._before_validation()
+            await self._before_validation()
         self._validate()
 
         # autotrim
         for field in self.__auto_trim_fields__:
-            print("autotrim", field)
             value = getattr(self, field)
             try:
                 value = value.strip()
@@ -303,7 +302,7 @@ class AbstractModel(metaclass=ModelMeta):
                 pass
 
         if not skip_callback:
-            self._before_save()
+            await self._before_save()
         await self._save_to_db()
 
         for hook in self.__hooks__:
@@ -317,7 +316,7 @@ class AbstractModel(metaclass=ModelMeta):
         if invalidate_cache:
             self.invalidate()
         if not skip_callback:
-            self._after_save(is_new)
+            await self._after_save(is_new)
 
         return self
 

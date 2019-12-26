@@ -64,7 +64,7 @@ class BaseSession(StorableModel):
         super().__init__(**kwargs)
         self.modified = False
 
-    def _before_save(self):
+    async def _before_save(self):
         if not self.is_new:
             self.touch()
 
@@ -101,5 +101,5 @@ def create_session_middleware(session_class: Type[BaseSession]):
     return session_middleware
 
 
-def acquire_session(request: Request):
+def acquire_session(request: Request) -> BaseSession:
     return getattr(request.state, "session", None)
