@@ -224,13 +224,13 @@ class DBShard:
     @intercept_db_errors_rw()
     async def save_obj(self, obj: AbstractModel):
         if obj.is_new:
-            data = obj.to_dict(include_restricted=True, jsonable_dict=False)
+            data = await obj.to_dict(include_restricted=True, jsonable_dict=False)
             del data["_id"]
             result = await self.conn[obj.__collection__].insert_one(data)
             obj._id = result.inserted_id
         else:
             await self.conn[obj.__collection__].replace_one(
-                {"_id": obj._id}, obj.to_dict(include_restricted=True, jsonable_dict=False), upsert=True
+                {"_id": obj._id}, await obj.to_dict(include_restricted=True, jsonable_dict=False), upsert=True
             )
 
     @intercept_db_errors_rw()

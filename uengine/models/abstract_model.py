@@ -1,9 +1,10 @@
+import asyncio
 from itertools import chain
 from pymongo import ASCENDING, DESCENDING, HASHED
 from pymongo.errors import OperationFailure
 from bson import ObjectId
 from copy import deepcopy
-from typing import Any, Iterable, Set, Type, List
+from typing import Any, Iterable, Set, Type
 from functools import wraps
 
 from .model_hook import ModelHook
@@ -206,7 +207,9 @@ class AbstractModel(metaclass=ModelMeta):
             cls.unregister_model_hook(hook_class)
 
     def __set_initial_state(self):
-        setattr(self, "_initial_state", deepcopy(self.to_dict(self.__fields__)))
+        setattr(self,
+                "_initial_state",
+                deepcopy(self._dict_sync(self.__fields__, include_restricted=True, jsonable_dict=False)))
 
     def _before_save(self):
         pass
@@ -347,7 +350,22 @@ class AbstractModel(metaclass=ModelMeta):
     def is_complete(self):
         return len(self.missing_fields) == 0
 
-    def to_dict(self, fields: Iterable[str] = None, include_restricted: bool = False, jsonable_dict: bool = True) -> dict:
+    async def collect_async_props(self, props):
+        async_props = []
+        async_tasks = []
+        for k, v in props.items():
+            async_props.append(k)
+            async_tasks.append(asyncio.create_task(v))
+
+        async_values = await asyncio.gather(*async_tasks)
+        result = {}
+        for idx in range(len(async_props)):
+            field = async_props[idx]
+            value = async_values[idx]
+            result[field] = value
+        return result
+
+    def _dict_sync(self, fields: Iterable[str] = None, include_restricted: bool = False, jsonable_dict: bool = True) -> dict:
         if fields is None:
             fields = list(self.__fields__)
 
@@ -361,10 +379,44 @@ class AbstractModel(metaclass=ModelMeta):
                 continue
             if callable(value):
                 continue
-
+            if asyncio.iscoroutine(value):
+                continue
             if jsonable_dict:
                 value = jsonable(value)
+
             result[field] = value
+
+        return result
+
+    async def to_dict(self, fields: Iterable[str] = None, include_restricted: bool = False, jsonable_dict: bool = True) -> dict:
+        if fields is None:
+            fields = list(self.__fields__)
+
+        result = {}
+        async_props = {}
+
+        for field in fields:
+            if field in self.__restricted_fields__ and not include_restricted:
+                continue
+            try:
+                value = getattr(self, field)
+            except AttributeError:
+                continue
+            if callable(value):
+                continue
+            if asyncio.iscoroutine(value):
+                async_props[field] = value
+                continue
+            if jsonable_dict:
+                value = jsonable(value)
+
+            result[field] = value
+
+        if async_props:
+            async_values = await self.collect_async_props(async_props)
+            for k, v in async_values.items():
+                result[k] = v
+
         return result
 
     @classmethod

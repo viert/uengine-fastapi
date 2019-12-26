@@ -1,3 +1,4 @@
+import asyncio
 from collections import namedtuple
 from typing import Callable, Iterable
 from math import ceil
@@ -24,8 +25,8 @@ def fields_param(_fields: str = None):
     return None
 
 
-def default_transform(item: AbstractModel, fields: Iterable = None) -> dict:
-    return item.to_dict(fields=fields)
+async def default_transform(item: AbstractModel, fields: Iterable = None) -> dict:
+    return await item.to_dict(fields=fields)
 
 
 async def paginated(data: ObjectsCursor,
@@ -44,11 +45,14 @@ async def paginated(data: ObjectsCursor,
 
     total_pages = ceil(count / limit) if limit is not None else None
 
+    data_tasks = [asyncio.create_task(transform(item, fields)) for item in await data.all()]
+    data = await asyncio.gather(*data_tasks)
+
     result = {
         "page": page,
         "total_pages": total_pages,
         "count": count,
-        "data": [transform(item, fields) for item in await data.all()],
+        "data": data,
     }
 
     if extra is not None:

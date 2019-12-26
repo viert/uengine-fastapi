@@ -6,7 +6,7 @@ account = APIRouter()
 
 @account.get("/me")
 async def me(user=Depends(set_current_user(required=True))):
-    data = user.to_dict()
+    data = await user.to_dict()
     token = await user.get_auth_token()
     data["auth_token"] = token.token
     return {"data": data}
