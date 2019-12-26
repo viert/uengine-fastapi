@@ -4,8 +4,9 @@ import inspect
 import logging
 import uvicorn
 
-from logging.handlers import WatchedFileHandler
+from abc import abstractmethod
 from fastapi import FastAPI
+from logging.handlers import WatchedFileHandler
 
 from . import ctx
 from .db import DB
@@ -127,5 +128,22 @@ class Base:
             kwargs["port"] = 8000
         uvicorn.run(f"{self.__module__}:app.server", reload=True, **kwargs)
 
+    @abstractmethod
+    def get_session_class(self):
+        return None
+
     def __setup_sessions(self):
-        ctx.log.error("SESSIONS NOT IMPLEMENTED")
+        from .sessions import create_session_middleware
+
+        session_class = self.get_session_class()
+
+        if session_class is None:
+            ctx.log.info("get_session_class() method should return a session model class to enable sessions")
+            return
+
+        sid_key = ctx.cfg.get("session_cookie_name")
+        if not sid_key:
+            ctx.log.info("no session_cookie_name configuration, sessions disabled")
+
+        session_middleware = create_session_middleware(session_class)
+        self.server.middleware("http")(session_middleware)

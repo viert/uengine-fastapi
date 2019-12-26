@@ -2,6 +2,5 @@ fastapi
 uvicorn
 requests
 motor
-mongomock
-aiocache
+itsdangerous
 lazy_object_proxy

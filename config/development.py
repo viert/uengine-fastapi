@@ -1,5 +1,8 @@
 documents_per_page = 10
 
+app_secret_key = "myZ@perK3y"
+
+session_cookie_name = "_sandbox_app_sid"
 session_expiration_time = 86400 * 7 * 2  # 2 weeks
 token_expiration_time = 86400 * 7 * 2  # 2 weeks
 
