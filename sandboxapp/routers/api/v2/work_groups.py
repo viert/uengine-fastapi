@@ -3,9 +3,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends
 
 from uengine.errors import Forbidden, InputDataError
-from uengine.api import (paginated, pagination_params, fields_param, filter_params,
-                         PaginationParams, FilterParams)
+from uengine.api import (paginated, pagination_params, fields_param,
+                         PaginationParams)
 
+from sandboxapp.api import filter_params, FilterParams
 from sandboxapp.auth import set_current_user
 from sandboxapp.views.work_groups import WorkGroupView, Owner, Members
 from sandboxapp.models import WorkGroup, User
