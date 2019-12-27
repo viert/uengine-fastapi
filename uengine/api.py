@@ -1,3 +1,4 @@
+import re
 import asyncio
 from collections import namedtuple
 from typing import Callable, Iterable
@@ -11,6 +12,26 @@ from uengine.models.abstract_model import AbstractModel
 DEFAULT_DOCUMENTS_PER_PAGE = 20
 
 PaginationParams = namedtuple("_PaginationParams", field_names=["limit", "page", "nopaging"])
+FilterParams = namedtuple("_FilterParams", field_names=["name", "mine"])
+
+
+def filter_expr(flt):
+    if flt.find(" ") >= 0:
+        tokens = flt.split()
+        return {"$in": tokens}
+    try:
+        return re.compile(flt, re.IGNORECASE)
+    # re.compile's can throw multiple different exceptions,
+    # we do not care about what exactly went wrong
+    except Exception:
+        return ""
+
+
+def filter_params(_filter: str = None, _mine: bool = True) -> FilterParams:
+    name_filter = None
+    if _filter:
+        name_filter = filter_expr(_filter)
+    return FilterParams(name=name_filter, mine=_mine)
 
 
 def pagination_params(_page: int = 1, _limit: int = 0, _nopaging: bool = False) -> PaginationParams:

@@ -125,7 +125,7 @@ class Base:
         if "host" not in kwargs:
             kwargs["host"] = "127.0.0.1"
         if "port" not in kwargs:
-            kwargs["port"] = 8000
+            kwargs["port"] = 5000
         uvicorn.run(f"{self.__module__}:app.server", reload=True, **kwargs)
 
     @abstractmethod

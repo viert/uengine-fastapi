@@ -6,6 +6,7 @@ from uengine import ctx
 
 from sandboxapp.routers.api.v2.users import users
 from sandboxapp.routers.api.v2.account import account
+from sandboxapp.routers.api.v2.work_groups import work_groups
 
 
 class App(Base):
@@ -14,6 +15,7 @@ class App(Base):
         ctx.log.info("configuring routes")
         self.server.include_router(users, prefix="/api/v2/users", tags=["users"])
         self.server.include_router(account, prefix="/api/v2/account", tags=["account"])
+        self.server.include_router(work_groups, prefix="/api/v2/work_groups", tags=["workgroups"])
 
     def get_session_class(self):
         from sandboxapp.models import Session

@@ -388,6 +388,8 @@ class AbstractModel(metaclass=ModelMeta):
         return result
 
     async def to_dict(self, fields: Iterable[str] = None, include_restricted: bool = False, jsonable_dict: bool = True) -> dict:
+        from uengine.db import ObjectsCursor
+
         if fields is None:
             fields = list(self.__fields__)
 
@@ -406,15 +408,23 @@ class AbstractModel(metaclass=ModelMeta):
             if asyncio.iscoroutine(value):
                 async_props[field] = value
                 continue
+
+            if isinstance(value, ObjectsCursor):
+                item_tasks = [asyncio.create_task(x.to_dict()) async for x in value]
+                value = await asyncio.gather(*item_tasks)
+
             if jsonable_dict:
                 value = jsonable(value)
 
             result[field] = value
 
         if async_props:
+
             async_values = await self.collect_async_props(async_props)
-            for k, v in async_values.items():
-                result[k] = v
+            for field, value in async_values.items():
+                if isinstance(value, AbstractModel):
+                    value = await value.to_dict(jsonable_dict=jsonable_dict)
+                result[field] = value
 
         return result
 

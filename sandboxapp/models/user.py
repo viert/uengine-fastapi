@@ -19,7 +19,7 @@ class User(StorableModel):
 
     __collection__ = "users"
 
-    ext_id: Union[int, str] = None
+    ext_id: int = None
     username: str
     first_name: str = ""
     last_name: str = ""
@@ -140,8 +140,8 @@ class User(StorableModel):
     async def _before_delete(self):
         self.invalidate()
         work_groups_count = await self.work_groups_owned.count()
-        if await work_groups_count > 0:
-            raise UserHasReferences("Can't remove user with work_groups owned by")
+        if work_groups_count > 0:
+            raise UserHasReferences("can't remove user with work_groups owned by")
         async for work_group in self.work_groups_included_into:
             await work_group.remove_member(self)
 

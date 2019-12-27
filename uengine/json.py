@@ -4,7 +4,7 @@ from types import GeneratorType
 
 def jsonable(obj):
     if isinstance(obj, dict):
-        return {k: jsonable(v) for k, v in obj.values()}
+        return {k: jsonable(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple, set, frozenset, GeneratorType)):
         return [jsonable(item) for item in obj]
     if isinstance(obj, ObjectId):

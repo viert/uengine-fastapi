@@ -96,11 +96,12 @@ async def oauth_callback(code: str, session=Depends(acquire_session)):
     }
 
     async with aiohttp.ClientSession() as http:
-        resp = await http.post(token_acquire_url, json=payload)
+        resp = await http.post(token_acquire_url, data=payload)
         access_data = await resp.json()
 
         if "access_token" not in access_data:
             ctx.log.error("no token in oauth data: %s", access_data)
+            raise AuthenticationError()
         else:
             token = access_data["access_token"]
             resp = await http.get(
@@ -109,6 +110,7 @@ async def oauth_callback(code: str, session=Depends(acquire_session)):
             )
             user_data = await resp.json()
             user = await User.find_one({"ext_id": user_data["id"]})
+            print(user_data)
             if user is None:
                 user = User(
                     first_name=user_data["first_name"],

@@ -6,7 +6,7 @@ class Shell(Command):
     DESCRIPTION = 'Run shell (using IPython if available)'
 
     def run(self):
-        from sandboxapp.models import User, Token, Session
+        from sandboxapp.models import User, Token, Session, WorkGroup
         from sandboxapp import force_init_app
         force_init_app()
         try:
