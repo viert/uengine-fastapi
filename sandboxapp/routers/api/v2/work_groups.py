@@ -1,13 +1,14 @@
+import asyncio
 from datetime import datetime
 from fastapi import APIRouter, Depends
 
-from uengine.errors import Forbidden
+from uengine.errors import Forbidden, InputDataError
 from uengine.api import (paginated, pagination_params, fields_param, filter_params,
                          PaginationParams, FilterParams)
 
 from sandboxapp.auth import set_current_user
-from sandboxapp.views.work_groups import WorkGroupView
-from sandboxapp.models import WorkGroup
+from sandboxapp.views.work_groups import WorkGroupView, Owner, Members
+from sandboxapp.models import WorkGroup, User
 
 work_groups = APIRouter()
 
@@ -108,4 +109,58 @@ async def destroy(work_group_id: str,
     return {
         "data": data,
         "message": f"workgroup {wg.name} successfully deleted"
+    }
+
+
+@work_groups.post("/{work_group_id}/switch_owner")
+async def switch_owner(work_group_id: str,
+                 data: Owner,
+                 user=Depends(set_current_user()),
+                 fields: list = Depends(fields_param)):
+    wg = await WorkGroup.get(work_group_id, "work_group not found")
+    if not wg.member_list_modification_allowed(user):
+        raise Forbidden("you don't have permission to change this work_group's owner")
+
+    user = await User.get(data.owner_id, "new owner not found")
+    if user._id == wg.owner_id:
+        raise InputDataError("old and new owners match")
+
+    wg.owner_id = user._id
+    await wg.save()
+
+    data = await wg.to_dict(fields=fields)
+    if fields and "modification_allowed" in fields:
+        data["modification_allowed"] = wg.modification_allowed(user)
+
+    return {
+        "data": data,
+        "message": f"workgroup {wg.name} owner switched to {user.username}"
+    }
+
+
+@work_groups.post("/{work_group_id}/set_members")
+async def switch_owner(work_group_id: str,
+                 data: Members,
+                 user=Depends(set_current_user()),
+                 fields: list = Depends(fields_param)):
+    wg = await WorkGroup.get(work_group_id, "work_group not found")
+    if not wg.member_list_modification_allowed(user):
+        raise Forbidden("you don't have permission to change this work_group's member list")
+
+    members_gather_tasks = [asyncio.create_task(User.get(uid, f"member with id {uid} not found")) for uid in data.member_ids]
+    member_ids = [m._id for m in await asyncio.gather(*members_gather_tasks)]
+
+    if wg.owner_id in member_ids:
+        member_ids.remove(wg.owner_id)
+
+    wg.member_ids = member_ids
+    await wg.save()
+
+    data = await wg.to_dict(fields=fields)
+    if fields and "modification_allowed" in fields:
+        data["modification_allowed"] = wg.modification_allowed(user)
+
+    return {
+        "data": data,
+        "message": f"workgroup {wg.name} members successfully set"
     }
