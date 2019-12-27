@@ -7,7 +7,8 @@ from uengine.errors import Authenticated, AuthenticationError, ConfigurationErro
 
 from sandboxapp.auth import set_current_user, acquire_session
 from sandboxapp.models import User
-from sandboxapp.views.users import UserSettings, AuthForm
+from sandboxapp.views.users import UserSettings
+from sandboxapp.views.auth import  AuthForm
 
 
 account = APIRouter()

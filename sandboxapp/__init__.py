@@ -4,9 +4,9 @@ from lazy_object_proxy import Proxy
 from uengine.base import Base
 from uengine import ctx
 
-from sandboxapp.routers.api.v2.users import users
-from sandboxapp.routers.api.v2.account import account
-from sandboxapp.routers.api.v2.work_groups import work_groups
+from sandboxapp.controllers.api.v2.users import users
+from sandboxapp.controllers.api.v2.account import account
+from sandboxapp.controllers.api.v2.work_groups import work_groups
 
 
 class App(Base):
