@@ -89,3 +89,23 @@ async def update(work_group_id: str,
         "data": data,
         "message": f"workgroup {wg.name} successfully updated"
     }
+
+
+@work_groups.delete("/{work_group_id}")
+async def destroy(work_group_id: str,
+                  user=Depends(set_current_user()),
+                  fields: list = Depends(fields_param)):
+    wg = await WorkGroup.get(work_group_id, "work_group not found")
+    if not wg.member_list_modification_allowed(user):
+        raise Forbidden("you don't have permission to delete this work_group")
+
+    await wg.destroy()
+
+    data = await wg.to_dict(fields=fields)
+    if fields and "modification_allowed" in fields:
+        data["modification_allowed"] = wg.modification_allowed(user)
+
+    return {
+        "data": data,
+        "message": f"workgroup {wg.name} successfully deleted"
+    }

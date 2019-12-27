@@ -70,5 +70,7 @@ class WorkGroup(StorableModel):
         return [u.username async for u in self.participants]
 
     def modification_allowed(self, user):
-        return user.supervisor or self.owner_id == user._id
+        return user.supervisor or self.owner_id == user._id or user._id in self.member_ids
 
+    def member_list_modification_allowed(self, user):
+        return user.supervisor or self.owner_id == user._id
