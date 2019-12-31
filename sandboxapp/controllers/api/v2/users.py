@@ -25,8 +25,12 @@ async def show(user_id: str,
                fields: list = Depends(fields_param)):
     user = await User.get(user_id, "user not found")
     data = await user.to_dict(fields=fields)
-    if fields and "modification_allowed" in fields:
-        data["modification_allowed"] = user.modification_allowed(current)
+    if fields:
+        if "modification_allowed" in fields:
+            data["modification_allowed"] = user.modification_allowed(current)
+        if "auth_token" in fields and user._id == current._id or current.supervisor:
+            token = await user.get_auth_token()
+            data["auth_token"] = token.token
     return {"data": data}
 
 

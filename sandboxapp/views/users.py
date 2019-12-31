@@ -3,6 +3,7 @@ from . import ViewConfig
 
 from sandboxapp.errors import InvalidPassword
 
+
 class UserSettings(BaseModel):
     Config = ViewConfig
     first_name: str = None

@@ -70,7 +70,6 @@ class ModelMeta(type):
     def __new__(mcs, name, bases, dct) -> Any:
         new_cls = super().__new__(mcs, name, bases, dct)
         mcs._set_fields(new_cls, dct)
-        mcs._set_collection(new_cls, name, bases, dct)
 
         # First merge mergers config
         merge_dict("__mergers__", new_cls, bases)
@@ -78,14 +77,15 @@ class ModelMeta(type):
         for attr, merge_func in new_cls.__mergers__.items():
             merge_func(attr, new_cls, bases)
 
+        setattr(new_cls, "__collection__", mcs._get_collection(new_cls, name, bases, dct))
         return new_cls
 
     @staticmethod
-    def _set_collection(model_cls, name, bases, dct):
+    def _get_collection(model_cls, name, bases, dct):
         if '__collection__' in dct:
-            model_cls.__collection__ = dct["__collection__"]
+            return dct["__collection__"]
         else:
-            model_cls.__collection__ = snake_case(name)
+            return snake_case(name)
 
     @staticmethod
     def _set_fields(model_cls, dct):
